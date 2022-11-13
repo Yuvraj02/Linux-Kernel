@@ -1,0 +1,1 @@
+cmd_/home/reckon/workspace/ldd/custom_drivers/002pseudo_char_driver/pcd.ko := ld -r -m elf_x86_64 --build-id=sha1  -T scripts/module.lds -o /home/reckon/workspace/ldd/custom_drivers/002pseudo_char_driver/pcd.ko /home/reckon/workspace/ldd/custom_drivers/002pseudo_char_driver/pcd.o /home/reckon/workspace/ldd/custom_drivers/002pseudo_char_driver/pcd.mod.o;  true
