@@ -1,1 +1,0 @@
-cmd_/home/reckon/workspace/ldd/custom_drivers/001hello_world/main.mod := { echo  /home/reckon/workspace/ldd/custom_drivers/001hello_world/main.o;  echo; } > /home/reckon/workspace/ldd/custom_drivers/001hello_world/main.mod
