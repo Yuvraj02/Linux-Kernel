@@ -2,25 +2,29 @@
   TODO : As of now, the driver supports only a single devices
         make it more dynamic to be supported by other devices
 */
-
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
 
 #define DEV1_MEM_SIZE 512
-#define DEV2_MEM_SIZE 1024
+
+#define RDWR 0x11
 
 char pdev_1[DEV1_MEM_SIZE];
-dev_t device_number;
+int device_perm = RDWR;
 
+
+dev_t device_number;
 /*
   TODO: MAKE THESE FUNCTIONS MORE DYNAMIC
 */
 
-int pcd_open(struct inode *inode, struct file *filp){
+int check_permission(int perm, int access){
 
-    return 0;
+    if(perm==RDWR)
+      return 0;
+return -EPERM;
 }
 
 
@@ -43,7 +47,6 @@ loff_t pcd_lseek(struct file *filp, loff_t offset, int whence){
       default:
                 return -EINVAL;
     }
-
   return filp->f_pos;
 }
 
@@ -57,7 +60,7 @@ ssize_t pcd_read(struct file *filp, char __user *buffer, size_t count, loff_t *f
             /*
             Copy "count" number of bytes from device memory to user buffer
             */            
-           if(copy_to_user(&buffer, &pdev_1+(*f_pos), count)){
+           if(copy_to_user(buffer, &pdev_1[*f_pos], count)){
                     return -EFAULT;
            }
           }
@@ -80,7 +83,7 @@ ssize_t pcd_write(struct file *filp, const char __user *buffer, size_t count, lo
         pr_info("Number of bytes to write : %zu\n", count);
         pr_info("Initial f_pos value : %lld\n", *f_pos);
 
-        if(*f_pos+count > DEV1_MEM_SIZE){
+        if((*f_pos+count) > DEV1_MEM_SIZE){
           count = DEV1_MEM_SIZE - *f_pos;
         }
 
@@ -89,21 +92,37 @@ ssize_t pcd_write(struct file *filp, const char __user *buffer, size_t count, lo
           return -ENOMEM;
         }
           
-        if(copy_from_user(&pdev_1+(*f_pos), &buffer, count)){
+        if(copy_from_user(&pdev_1[*f_pos], buffer, count)){
           return -EFAULT;
         }
 
-        f_pos += count;
+        *f_pos += count;
 
         pr_info("Number of bytes successfully written : %zu\n",count);
         pr_info("Updated f_pos value : %lld\n",*f_pos);
 
 
-  return 0;
+  return count;
+}
+
+int pcd_open(struct inode *inode, struct file *filp){
+
+    //   int ret,minor_num;
+    //   minor_num = MINOR(inode->i_rdev);
+
+    //   pr_info("Minor access = %d\n", minor_num);
+
+    //   ret = check_permission(device_perm,filp->f_mode);
+
+    //   (!ret) ? pr_info("Open Successfull\n") : pr_info("Open Failed\n"); 
+
+    // return ret;
+    pr_info("Open Successfull\n");
+    return 0;
 }
 
 int pcd_release(struct inode *inode, struct file *filp){
-    pr_info("Device Closed successfullt\n");
+    pr_info("Device Closed successfully\n");
   return 0;
 }
 
@@ -111,47 +130,85 @@ int pcd_release(struct inode *inode, struct file *filp){
 struct file_operations pcd_fops = {
           .open = pcd_open,
           .read = pcd_read,
+          .llseek = pcd_lseek,
           .write = pcd_write,
           .release = pcd_release,
           .owner = THIS_MODULE
 };
 
 /*cdev structures for pseudo character devices*/
-struct cdev pcdev1;
-
+struct cdev pcd_cdev;
+struct class *pcd_class;
+struct device *device_pcd;
 
 static int __init pcd_driver_init(void){
 
-  pr_info("Module Loaded\n");
-
-  alloc_chrdev_region(&device_number,0,1,"pseudo-char-device");
-
-  cdev_init(&pcdev1, &pcd_fops);
+  int ret;
+ 
+  ret = alloc_chrdev_region(&device_number,0,1,"pcd_devices");
+    if(ret<0){
+        pr_info("Device Allocation Failed\n");
+        goto out;
+    }
+  cdev_init(&pcd_cdev, &pcd_fops);
 
   /*cdev structure has a owner field which has to be initialized
     to THIS_MODULE to indicate which module this device or structure
     belongs to, we initialize them after init, because init
     will blank out owner field
     */
-  pcdev1.owner = THIS_MODULE;
+  pcd_cdev.owner = THIS_MODULE;
 
 
   /*We add the add device with a cdev structure and device number in
     arguements but initialize with cdev structure and file
     operations*/
-  cdev_add(&pcdev1, device_number,1);
-  
+  ret = cdev_add(&pcd_cdev, device_number,1);
+    if(ret < 0){
+        pr_info("Device Registration failed (cdev_add err)\n");
+        goto unregister_chrdev;
+    }
   //TODO: IMPLEMENT CLASS CREATE AND DEVICE CREATE
 
-  struct class *pcd_class = class_create(THIS_MODULE,"pcd_class");
-  device_create(pcd_class,NULL, device_number,NULL,"pcdev-0");
+  pcd_class = class_create(THIS_MODULE,"pcd_class");
+
+    if(IS_ERR(pcd_class)){
+        pr_info("Class Creation Failed\n");
+        ret = PTR_ERR(pcd_class);
+        goto cdev_del;
+    }
+
+  device_pcd = device_create(pcd_class,NULL, device_number,NULL,"pcdev");
+    if(IS_ERR(device_pcd)){
+      pr_info("Device Creation Failed\n");
+      ret = PTR_ERR(device_pcd);
+      goto class_destroy;
+    }
   //This is the last step
 
+   pr_info("Module Init Successfull\n");
   return 0;
+
+class_destroy:
+          class_destroy(pcd_class);
+cdev_del:
+          cdev_del(&pcd_cdev);
+unregister_chrdev:
+          unregister_chrdev_region(device_number,1);
+out:
+    return ret;
 
 }
 
 static void __exit pcd_driver_exit(void){
+
+    device_destroy(pcd_class, device_number);
+
+    class_destroy(pcd_class);
+
+    cdev_del(&pcd_cdev);
+
+    unregister_chrdev_region(device_number, 1);
 
   pr_info("Module Unloaded\n");
 }
