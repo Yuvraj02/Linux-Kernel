@@ -12,7 +12,6 @@
 #define DEV2_MEM_SIZE 1024
 
 char pdev_1[DEV1_MEM_SIZE];
-char pdev_2[DEV2_MEM_SIZE];
 dev_t device_number;
 
 /*
@@ -104,7 +103,7 @@ ssize_t pcd_write(struct file *filp, const char __user *buffer, size_t count, lo
 }
 
 int pcd_release(struct inode *inode, struct file *filp){
-
+    pr_info("Device Closed successfullt\n");
   return 0;
 }
 
@@ -119,14 +118,15 @@ struct file_operations pcd_fops = {
 
 /*cdev structures for pseudo character devices*/
 struct cdev pcdev1;
-struct cdev pcdev2;
+
 
 static int __init pcd_driver_init(void){
 
-  alloc_chrdev_region(&device_number,0,2,"pseudo-char-device");
+  pr_info("Module Loaded\n");
+
+  alloc_chrdev_region(&device_number,0,1,"pseudo-char-device");
 
   cdev_init(&pcdev1, &pcd_fops);
-  cdev_init(&pcdev2, &pcd_fops);
 
   /*cdev structure has a owner field which has to be initialized
     to THIS_MODULE to indicate which module this device or structure
@@ -134,15 +134,18 @@ static int __init pcd_driver_init(void){
     will blank out owner field
     */
   pcdev1.owner = THIS_MODULE;
-  pcdev2.owner = THIS_MODULE;
+
 
   /*We add the add device with a cdev structure and device number in
     arguements but initialize with cdev structure and file
     operations*/
   cdev_add(&pcdev1, device_number,1);
-  cdev_add(&pcdev2, device_number+1,1);
   
   //TODO: IMPLEMENT CLASS CREATE AND DEVICE CREATE
+
+  struct class *pcd_class = class_create(THIS_MODULE,"pcd_class");
+  device_create(pcd_class,NULL, device_number,NULL,"pcdev-0");
+  //This is the last step
 
   return 0;
 
@@ -150,7 +153,7 @@ static int __init pcd_driver_init(void){
 
 static void __exit pcd_driver_exit(void){
 
-  pr_info("Module Unloaded");
+  pr_info("Module Unloaded\n");
 }
 
 module_init(pcd_driver_init);
