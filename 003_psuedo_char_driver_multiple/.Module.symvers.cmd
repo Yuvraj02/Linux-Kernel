@@ -1,1 +1,0 @@
-cmd_/home/reckon/workspace/ldd/custom_drivers/003_psuedo_char_driver_multiple/Module.symvers := sed 's/\.ko$$/\.o/' /home/reckon/workspace/ldd/custom_drivers/003_psuedo_char_driver_multiple/modules.order | scripts/mod/modpost -m -a  -o /home/reckon/workspace/ldd/custom_drivers/003_psuedo_char_driver_multiple/Module.symvers -e -i Module.symvers   -T -
