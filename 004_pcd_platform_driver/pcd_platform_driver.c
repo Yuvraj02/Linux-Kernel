@@ -6,6 +6,8 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
+#include <linux/platform_device.h>
+#include <linux/device.h>
 
 #define DEV1_MEM_SIZE 512
 
@@ -136,80 +138,112 @@ struct file_operations pcd_fops = {
           .owner = THIS_MODULE
 };
 
+//TO BE IMPLEMENTED-----------------------------|
+
+/*This gets called when the matched platform device is formed*/
+int pcd_probe(struct platform_device *pdev){
+
+  return 0;
+}
+
+/*This function is called when the device is removed
+from the system*/
+int pcd_remove(struct platform_device *pdev){
+
+  return 0; 
+}
+
 /*cdev structures for pseudo character devices*/
 struct cdev pcd_cdev;
 struct class *pcd_class;
 struct device *device_pcd;
 
+
+struct platform_driver pcd_platform_driver = {
+                          .probe = pcd_probe,
+                          .remove = pcd_remove,
+                          .driver = {
+                            .name = "pseudo-char-device"
+                          }
+};
+
+
 static int __init pcd_driver_init(void){
 
-  int ret;
+  //int ret;
+
+  platform_driver_register(&pcd_platform_driver);
+
+  pr_info("PCD platform driver loaded\n");
+
+  return 0; 
  
-  ret = alloc_chrdev_region(&device_number,0,1,"pcd_devices");
-    if(ret<0){
-        pr_info("Device Allocation Failed\n");
-        goto out;
-    }
-  cdev_init(&pcd_cdev, &pcd_fops);
+//   ret = alloc_chrdev_region(&device_number,0,1,"pcd_devices");
+//     if(ret<0){
+//         pr_info("Device Allocation Failed\n");
+//         goto out;
+//     }
+//   cdev_init(&pcd_cdev, &pcd_fops);
 
-  /*cdev structure has a owner field which has to be initialized
-    to THIS_MODULE to indicate which module this device or structure
-    belongs to, we initialize them after init, because init
-    will blank out owner field
-    */
-  pcd_cdev.owner = THIS_MODULE;
+//   /*cdev structure has a owner field which has to be initialized
+//     to THIS_MODULE to indicate which module this device or structure
+//     belongs to, we initialize them after init, because init
+//     will blank out owner field
+//     */
+//   pcd_cdev.owner = THIS_MODULE;
 
 
-  /*We add the add device with a cdev structure and device number in
-    arguements but initialize with cdev structure and file
-    operations*/
-  ret = cdev_add(&pcd_cdev, device_number,1);
-    if(ret < 0){
-        pr_info("Device Registration failed (cdev_add err)\n");
-        goto unregister_chrdev;
-    }
-  //TODO: IMPLEMENT CLASS CREATE AND DEVICE CREATE
+//   /*We add the add device with a cdev structure and device number in
+//     arguements but initialize with cdev structure and file
+//     operations*/
+//   ret = cdev_add(&pcd_cdev, device_number,1);
+//     if(ret < 0){
+//         pr_info("Device Registration failed (cdev_add err)\n");
+//         goto unregister_chrdev;
+//     }
+//   //TODO: IMPLEMENT CLASS CREATE AND DEVICE CREATE
 
-  pcd_class = class_create(THIS_MODULE,"pcd_class");
+//   pcd_class = class_create(THIS_MODULE,"pcd_class");
 
-    if(IS_ERR(pcd_class)){
-        pr_info("Class Creation Failed\n");
-        ret = PTR_ERR(pcd_class);
-        goto cdev_del;
-    }
+//     if(IS_ERR(pcd_class)){
+//         pr_info("Class Creation Failed\n");
+//         ret = PTR_ERR(pcd_class);
+//         goto cdev_del;
+//     }
 
-  device_pcd = device_create(pcd_class,NULL, device_number,NULL,"pcdev");
-    if(IS_ERR(device_pcd)){
-      pr_info("Device Creation Failed\n");
-      ret = PTR_ERR(device_pcd);
-      goto class_destroy;
-    }
-  //This is the last step
+//   device_pcd = device_create(pcd_class,NULL, device_number,NULL,"pcdev");
+//     if(IS_ERR(device_pcd)){
+//       pr_info("Device Creation Failed\n");
+//       ret = PTR_ERR(device_pcd);
+//       goto class_destroy;
+//     }
+//   //This is the last step
 
-   pr_info("Module Init Successfull\n");
-  return 0;
+//    pr_info("Module Init Successfull\n");
+//   return 0;
 
-class_destroy:
-          class_destroy(pcd_class);
-cdev_del:
-          cdev_del(&pcd_cdev);
-unregister_chrdev:
-          unregister_chrdev_region(device_number,1);
-out:
-    return ret;
+// class_destroy:
+//           class_destroy(pcd_class);
+// cdev_del:
+//           cdev_del(&pcd_cdev);
+// unregister_chrdev:
+//           unregister_chrdev_region(device_number,1);
+// out:
+//     return ret;
 
 }
 
 static void __exit pcd_driver_exit(void){
 
-    device_destroy(pcd_class, device_number);
+    // device_destroy(pcd_class, device_number);
 
-    class_destroy(pcd_class);
+    // class_destroy(pcd_class);
 
-    cdev_del(&pcd_cdev);
+    // cdev_del(&pcd_cdev);
 
-    unregister_chrdev_region(device_number, 1);
+    // unregister_chrdev_region(device_number, 1);
 
+  platform_driver_unregister(&pcd_platform_driver);
   pr_info("Module Unloaded\n");
 }
 
