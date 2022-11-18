@@ -10,7 +10,6 @@ void pcdev_release(struct device *dev){
 }
 
 //1.create 2 platform data
-
 struct pcdev_platform_data pcdev_pdata[2] = {
 		[0] = {.size = 512,
 		       .perm = RDWR,
